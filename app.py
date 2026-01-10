@@ -29,9 +29,18 @@ st.set_page_config(
 @st.cache_data
 def carregar_dados():
     df = pd.read_csv("data/Dados Históricos - Ibovespa 2005-2025.csv")
-    df['Data'] = pd.to_datetime(df['Data'])
+    
+    df['Data'] = pd.to_datetime(
+        df['Data'],
+        format="%d/%m/%Y",
+        errors="coerce"
+    )
+    
+    df = df.dropna(subset=['Data'])
     df = df.sort_values('Data')
+    
     return df
+
 
 @st.cache_resource
 def carregar_modelo():
