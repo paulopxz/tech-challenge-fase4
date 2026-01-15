@@ -13,8 +13,11 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("📈 Previsão do Ibovespa")
-st.write("Aplicação desenvolvida para o Tech Challenge – Fase 4")
+st.title("📈 Previsão do Ibovespa (ARIMA)")
+st.write(
+    "Aplicação desenvolvida para o Tech Challenge – Fase 4. "
+    "Modelo ARIMA treinado sobre log-retornos do Ibovespa."
+)
 
 # =========================
 # CAMINHOS
@@ -29,21 +32,22 @@ MODEL_PATH = Path("model/modelo_ibov.pkl")
 def carregar_dados():
     df = pd.read_csv(DATA_PATH)
 
-    # Normalizar colunas
+    # Normalizar nomes das colunas
     df.columns = df.columns.str.strip()
 
-    # Converter data
+    # Converter coluna de data (formato brasileiro)
     df["Data"] = pd.to_datetime(
         df["Data"],
         format="%d/%m/%Y",
         errors="coerce"
     )
 
-    # Criar Fechamento
+    # Verificação da coluna esperada
     if "Último" not in df.columns:
-        st.error("Coluna 'Último' não encontrada no CSV.")
+        st.error("Coluna 'Último' não encontrada no arquivo CSV.")
         st.stop()
 
+    # Converter coluna de preço para float
     df["Fechamento"] = (
         df["Último"]
         .astype(str)
@@ -53,6 +57,7 @@ def carregar_dados():
 
     df["Fechamento"] = pd.to_numeric(df["Fechamento"], errors="coerce")
 
+    # Limpeza final
     df = df.dropna(subset=["Data", "Fechamento"])
     df = df.sort_values("Data")
 
@@ -60,7 +65,7 @@ def carregar_dados():
 
 
 # =========================
-# CARREGAR MODELO
+# CARREGAMENTO DO MODELO
 # =========================
 @st.cache_resource
 def carregar_modelo():
@@ -77,7 +82,6 @@ modelo = carregar_modelo()
 # FEATURE ENGINEERING
 # =========================
 df["log_return"] = np.log(df["Fechamento"]).diff()
-
 df_lr = df.dropna(subset=["log_return"])
 
 # =========================
@@ -85,7 +89,7 @@ df_lr = df.dropna(subset=["log_return"])
 # =========================
 st.subheader("📊 Série Histórica do Ibovespa")
 
-fig, ax = plt.subplots()
+fig, ax = plt.subplots(figsize=(10, 4))
 ax.plot(df["Data"], df["Fechamento"])
 ax.set_xlabel("Data")
 ax.set_ylabel("Ibovespa")
@@ -94,24 +98,33 @@ ax.grid(True)
 st.pyplot(fig)
 
 # =========================
-# PREVISÃO (COM SEGURANÇA)
+# PREVISÃO COM ARIMA
 # =========================
-st.subheader("🔮 Previsão do Próximo Log-Return")
+st.subheader("🔮 Previsão do Próximo Log-Return (ARIMA)")
 
-if len(df_lr) < 1:
+if len(df_lr) < 30:
     st.warning(
-        "Não há dados suficientes para calcular o log-return e gerar previsão."
+        "Série histórica insuficiente para gerar previsão confiável."
     )
 else:
-    ultimo_valor = df_lr["log_return"].iloc[-1]
-    X_input = np.array([[ultimo_valor]])
+    try:
+        previsao = modelo.forecast(steps=1)[0]
 
-    previsao = modelo.predict(X_input)[0]
+        st.metric(
+            label="Log-return previsto",
+            value=f"{previsao:.6f}"
+        )
 
-    st.metric(
-        label="Log-return previsto",
-        value=f"{previsao:.6f}"
-    )
+    except Exception as e:
+        st.error("Erro ao gerar previsão com o modelo ARIMA.")
+        st.exception(e)
 
-st.caption("Modelo treinado na Fase 2 e aplicado em ambiente Streamlit Cloud.")
+# =========================
+# RODAPÉ
+# =========================
+st.caption(
+    "Modelo ARIMA treinado na Fase 2 do Tech Challenge, "
+    "aplicado em ambiente Streamlit Cloud na Fase 4."
+)
+
 
