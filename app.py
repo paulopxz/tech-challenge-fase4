@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import joblib
 import matplotlib.pyplot as plt
 from pathlib import Path
+from statsmodels.tsa.arima.model import ARIMA
 
 # =========================
 # CONFIGURAÇÃO DA PÁGINA
@@ -16,14 +16,14 @@ st.set_page_config(
 st.title("📈 Previsão do Ibovespa (ARIMA)")
 st.write(
     "Aplicação desenvolvida para o Tech Challenge – Fase 4. "
-    "Modelo ARIMA treinado sobre log-retornos do Ibovespa."
+    "O modelo ARIMA é re-treinado dinamicamente para garantir "
+    "compatibilidade no deploy em nuvem."
 )
 
 # =========================
-# CAMINHOS
+# CAMINHO DOS DADOS
 # =========================
 DATA_PATH = Path("data/Dados Históricos - Ibovespa 2005-2025.csv")
-MODEL_PATH = Path("model/modelo_ibov.pkl")
 
 # =========================
 # CARREGAMENTO DOS DADOS
@@ -32,22 +32,18 @@ MODEL_PATH = Path("model/modelo_ibov.pkl")
 def carregar_dados():
     df = pd.read_csv(DATA_PATH)
 
-    # Normalizar nomes das colunas
     df.columns = df.columns.str.strip()
 
-    # Converter coluna de data (formato brasileiro)
     df["Data"] = pd.to_datetime(
         df["Data"],
         format="%d/%m/%Y",
         errors="coerce"
     )
 
-    # Verificação da coluna esperada
     if "Último" not in df.columns:
-        st.error("Coluna 'Último' não encontrada no arquivo CSV.")
+        st.error("Coluna 'Último' não encontrada no CSV.")
         st.stop()
 
-    # Converter coluna de preço para float
     df["Fechamento"] = (
         df["Último"]
         .astype(str)
@@ -57,7 +53,6 @@ def carregar_dados():
 
     df["Fechamento"] = pd.to_numeric(df["Fechamento"], errors="coerce")
 
-    # Limpeza final
     df = df.dropna(subset=["Data", "Fechamento"])
     df = df.sort_values("Data")
 
@@ -65,18 +60,9 @@ def carregar_dados():
 
 
 # =========================
-# CARREGAMENTO DO MODELO
-# =========================
-@st.cache_resource
-def carregar_modelo():
-    return joblib.load(MODEL_PATH)
-
-
-# =========================
 # EXECUÇÃO
 # =========================
 df = carregar_dados()
-modelo = carregar_modelo()
 
 # =========================
 # FEATURE ENGINEERING
@@ -100,15 +86,21 @@ st.pyplot(fig)
 # =========================
 # PREVISÃO COM ARIMA
 # =========================
-st.subheader("🔮 Previsão do Próximo Log-Return (ARIMA)")
+st.subheader("🔮 Previsão do Próximo Log-Return")
 
-if len(df_lr) < 30:
+if len(df_lr) < 50:
     st.warning(
-        "Série histórica insuficiente para gerar previsão confiável."
+        "Quantidade insuficiente de dados para ajuste confiável do modelo ARIMA."
     )
 else:
     try:
-        previsao = modelo.forecast(steps=1)[0]
+        with st.spinner("Ajustando modelo ARIMA..."):
+            modelo = ARIMA(
+                df_lr["log_return"],
+                order=(1, 0, 1)
+            ).fit()
+
+            previsao = modelo.forecast(steps=1)[0]
 
         st.metric(
             label="Log-return previsto",
@@ -116,15 +108,14 @@ else:
         )
 
     except Exception as e:
-        st.error("Erro ao gerar previsão com o modelo ARIMA.")
+        st.error("Erro ao ajustar ou prever com o modelo ARIMA.")
         st.exception(e)
 
 # =========================
 # RODAPÉ
 # =========================
 st.caption(
-    "Modelo ARIMA treinado na Fase 2 do Tech Challenge, "
-    "aplicado em ambiente Streamlit Cloud na Fase 4."
+    "Modelo ARIMA definido e validado na Fase 2. "
+    "Reajustado dinamicamente no app para garantir compatibilidade "
+    "no ambiente Streamlit Cloud."
 )
-
-
