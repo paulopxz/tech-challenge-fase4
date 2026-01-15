@@ -15,9 +15,7 @@ st.set_page_config(
 
 st.title("📈 Previsão do Ibovespa (ARIMA)")
 st.write(
-    "Aplicação desenvolvida para o Tech Challenge – Fase 4. "
-    "O modelo ARIMA é re-treinado dinamicamente para garantir "
-    "compatibilidade no deploy em nuvem."
+    "Aplicação desenvolvida para o Tech Challenge – Fase 4."
 )
 
 # =========================
@@ -30,20 +28,23 @@ DATA_PATH = Path("data/Dados Históricos - Ibovespa 2005-2025.csv")
 # =========================
 @st.cache_data
 def carregar_dados():
-    df = pd.read_csv(DATA_PATH)
+    df = pd.read_csv(
+        DATA_PATH,
+        sep=";",
+        encoding="latin-1"
+    )
 
+    # Normalizar nomes
     df.columns = df.columns.str.strip()
 
+    # Converter data
     df["Data"] = pd.to_datetime(
         df["Data"],
-        format="%d/%m/%Y",
+        format="%d.%m.%Y",
         errors="coerce"
     )
 
-    if "Último" not in df.columns:
-        st.error("Coluna 'Último' não encontrada no CSV.")
-        st.stop()
-
+    # Converter preço
     df["Fechamento"] = (
         df["Último"]
         .astype(str)
@@ -63,6 +64,8 @@ def carregar_dados():
 # EXECUÇÃO
 # =========================
 df = carregar_dados()
+
+st.write(f"📊 Total de registros carregados: {len(df)}")
 
 # =========================
 # FEATURE ENGINEERING
@@ -90,32 +93,24 @@ st.subheader("🔮 Previsão do Próximo Log-Return")
 
 if len(df_lr) < 50:
     st.warning(
-        "Quantidade insuficiente de dados para ajuste confiável do modelo ARIMA."
+        f"Quantidade insuficiente de dados para ARIMA. "
+        f"Registros válidos: {len(df_lr)}"
     )
 else:
-    try:
-        with st.spinner("Ajustando modelo ARIMA..."):
-            modelo = ARIMA(
-                df_lr["log_return"],
-                order=(1, 0, 1)
-            ).fit()
+    with st.spinner("Ajustando modelo ARIMA..."):
+        modelo = ARIMA(
+            df_lr["log_return"],
+            order=(1, 0, 1)
+        ).fit()
 
-            previsao = modelo.forecast(steps=1)[0]
+        previsao = modelo.forecast(steps=1)[0]
 
-        st.metric(
-            label="Log-return previsto",
-            value=f"{previsao:.6f}"
-        )
+    st.metric(
+        label="Log-return previsto",
+        value=f"{previsao:.6f}"
+    )
 
-    except Exception as e:
-        st.error("Erro ao ajustar ou prever com o modelo ARIMA.")
-        st.exception(e)
-
-# =========================
-# RODAPÉ
-# =========================
 st.caption(
-    "Modelo ARIMA definido e validado na Fase 2. "
-    "Reajustado dinamicamente no app para garantir compatibilidade "
-    "no ambiente Streamlit Cloud."
+    "Modelo ARIMA definido na Fase 2 e ajustado dinamicamente "
+    "no app para garantir compatibilidade em produção."
 )
