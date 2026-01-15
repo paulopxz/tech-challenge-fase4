@@ -1,41 +1,44 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import joblib
 import matplotlib.pyplot as plt
 from pathlib import Path
-from statsmodels.tsa.arima.model import ARIMA
 
 # =========================
-# CONFIGURAÇÃO DA PÁGINA
+# CONFIGURAÇÃO
 # =========================
 st.set_page_config(
     page_title="Tech Challenge Fase 4 - Ibovespa",
     layout="wide"
 )
 
-st.title("📈 Previsão do Ibovespa (ARIMA)")
-st.write(
-    "Aplicação desenvolvida para o Tech Challenge – Fase 4."
-)
+st.title("📈 Previsão do Ibovespa")
+st.write("Modelo treinado na Fase 2 e aplicado em Streamlit")
 
 # =========================
-# CAMINHO DOS DADOS
+# CAMINHOS
 # =========================
 DATA_PATH = Path("data/Dados Históricos - Ibovespa 2005-2025.csv")
+MODEL_PATH = Path("model/modelo_ibov.pkl")
 
 # =========================
-# CARREGAMENTO DOS DADOS
+# CARREGAR DADOS (REAL)
 # =========================
 @st.cache_data
 def carregar_dados():
     df = pd.read_csv(
         DATA_PATH,
-        sep=";",
+        sep=",",
         encoding="latin-1"
     )
 
-    # Normalizar nomes
-    df.columns = df.columns.str.strip()
+    # Corrigir nomes quebrados
+    df = df.rename(columns={
+        'ï»¿"Data"': 'Data',
+        'Ã\x9altimo': 'Ultimo',
+        'Ãltimo': 'Ultimo'
+    })
 
     # Converter data
     df["Data"] = pd.to_datetime(
@@ -44,42 +47,40 @@ def carregar_dados():
         errors="coerce"
     )
 
-    # Converter preço
-    df["Fechamento"] = (
-        df["Último"]
-        .astype(str)
-        .str.replace(".", "", regex=False)
-        .str.replace(",", ".", regex=False)
-    )
+    # Garantir tipo numérico
+    df["Ultimo"] = pd.to_numeric(df["Ultimo"], errors="coerce")
 
-    df["Fechamento"] = pd.to_numeric(df["Fechamento"], errors="coerce")
-
-    df = df.dropna(subset=["Data", "Fechamento"])
-    df = df.sort_values("Data")
+    df = df.dropna(subset=["Data", "Ultimo"])
+    df = df.sort_values("Data").reset_index(drop=True)
 
     return df
 
+# =========================
+# CARREGAR MODELO
+# =========================
+@st.cache_resource
+def carregar_modelo():
+    return joblib.load(MODEL_PATH)
 
 # =========================
 # EXECUÇÃO
 # =========================
 df = carregar_dados()
-
-st.write(f"📊 Total de registros carregados: {len(df)}")
+modelo = carregar_modelo()
 
 # =========================
 # FEATURE ENGINEERING
 # =========================
-df["log_return"] = np.log(df["Fechamento"]).diff()
+df["log_return"] = np.log(df["Ultimo"]).diff()
 df_lr = df.dropna(subset=["log_return"])
 
 # =========================
-# VISUALIZAÇÃO
+# GRÁFICO
 # =========================
 st.subheader("📊 Série Histórica do Ibovespa")
 
 fig, ax = plt.subplots(figsize=(10, 4))
-ax.plot(df["Data"], df["Fechamento"])
+ax.plot(df["Data"], df["Ultimo"])
 ax.set_xlabel("Data")
 ax.set_ylabel("Ibovespa")
 ax.grid(True)
@@ -87,30 +88,24 @@ ax.grid(True)
 st.pyplot(fig)
 
 # =========================
-# PREVISÃO COM ARIMA
+# PREVISÃO
 # =========================
-st.subheader("🔮 Previsão do Próximo Log-Return")
+st.subheader("🔮 Previsão do próximo Log-Return")
 
-if len(df_lr) < 50:
+if len(df_lr) < 5:
     st.warning(
-        f"Quantidade insuficiente de dados para ARIMA. "
-        f"Registros válidos: {len(df_lr)}"
+        "Quantidade insuficiente de dados para previsão confiável."
     )
 else:
-    with st.spinner("Ajustando modelo ARIMA..."):
-        modelo = ARIMA(
-            df_lr["log_return"],
-            order=(1, 0, 1)
-        ).fit()
+    ultimo_lr = df_lr["log_return"].iloc[-1]
+    X_input = np.array([[ultimo_lr]])
 
-        previsao = modelo.forecast(steps=1)[0]
+    previsao = modelo.predict(X_input)[0]
 
     st.metric(
         label="Log-return previsto",
         value=f"{previsao:.6f}"
     )
 
-st.caption(
-    "Modelo ARIMA definido na Fase 2 e ajustado dinamicamente "
-    "no app para garantir compatibilidade em produção."
-)
+st.caption("Tech Challenge • Fase 4 • FIAP")
+
