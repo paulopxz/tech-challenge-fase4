@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import pickle
 import matplotlib.pyplot as plt
+from statsmodels.tsa.arima.model import ARIMA
 from pathlib import Path
 
 # =========================
@@ -14,71 +14,55 @@ st.set_page_config(
 )
 
 st.title("📈 Previsão do Ibovespa")
-st.write("Modelo treinado na Fase 2 e aplicado em Streamlit")
+st.write("Aplicação desenvolvida para o Tech Challenge – Fase 4")
 
-# =========================
-# CAMINHOS
-# =========================
 DATA_PATH = Path("data/Dados Históricos - Ibovespa 2005-2025.csv")
-MODEL_PATH = Path("model/modelo_ibov.pkl")
 
 # =========================
-# CARREGAR DADOS
+# CARREGAMENTO DOS DADOS
 # =========================
 @st.cache_data
 def carregar_dados():
-    df = pd.read_csv(
-        DATA_PATH,
-        encoding="latin-1"
-    )
+    df = pd.read_csv(DATA_PATH)
+    df.columns = df.columns.str.strip()
 
-    df = df.rename(columns={
-        'ï»¿"Data"': 'Data',
-        'Ã\x9altimo': 'Ultimo',
-        'Ãltimo': 'Ultimo'
-    })
-
+    # Converter data
     df["Data"] = pd.to_datetime(
         df["Data"],
-        format="%d.%m.%Y",
+        format="%d/%m/%Y",
         errors="coerce"
     )
 
-    df["Ultimo"] = pd.to_numeric(df["Ultimo"], errors="coerce")
+    # Converter fechamento
+    df["Fechamento"] = (
+        df["Último"]
+        .astype(str)
+        .str.replace(".", "", regex=False)
+        .str.replace(",", ".", regex=False)
+    )
 
-    df = df.dropna(subset=["Data", "Ultimo"])
-    df = df.sort_values("Data").reset_index(drop=True)
+    df["Fechamento"] = pd.to_numeric(df["Fechamento"], errors="coerce")
+
+    df = df.dropna(subset=["Data", "Fechamento"])
+    df = df.sort_values("Data")
 
     return df
 
-# =========================
-# CARREGAR MODELO (PICKLE)
-# =========================
-@st.cache_resource
-def carregar_modelo():
-    with open(MODEL_PATH, "rb") as f:
-        modelo = pickle.load(f)
-    return modelo
-
-# =========================
-# EXECUÇÃO
-# =========================
 df = carregar_dados()
-modelo = carregar_modelo()
 
 # =========================
 # FEATURE ENGINEERING
 # =========================
-df["log_return"] = np.log(df["Ultimo"]).diff()
+df["log_return"] = np.log(df["Fechamento"]).diff()
 df_lr = df.dropna(subset=["log_return"])
 
 # =========================
-# GRÁFICO
+# VISUALIZAÇÃO
 # =========================
 st.subheader("📊 Série Histórica do Ibovespa")
 
 fig, ax = plt.subplots(figsize=(10, 4))
-ax.plot(df["Data"], df["Ultimo"])
+ax.plot(df["Data"], df["Fechamento"])
 ax.set_xlabel("Data")
 ax.set_ylabel("Ibovespa")
 ax.grid(True)
@@ -88,19 +72,21 @@ st.pyplot(fig)
 # =========================
 # PREVISÃO
 # =========================
-st.subheader("🔮 Previsão do próximo Log-Return")
+st.subheader("🔮 Previsão do Próximo Log-Return")
 
-if len(df_lr) < 5:
-    st.warning("Quantidade insuficiente de dados para previsão.")
+if len(df_lr) < 30:
+    st.warning("Quantidade insuficiente de dados para ajuste confiável do modelo ARIMA.")
 else:
-    ultimo_lr = df_lr["log_return"].iloc[-1]
-    X_input = np.array([[ultimo_lr]])
+    serie = df_lr["log_return"]
 
-    previsao = modelo.predict(X_input)[0]
+    modelo = ARIMA(serie, order=(1, 0, 1))
+    modelo_ajustado = modelo.fit()
+
+    previsao = modelo_ajustado.forecast(steps=1).iloc[0]
 
     st.metric(
         label="Log-return previsto",
         value=f"{previsao:.6f}"
     )
 
-st.caption("Tech Challenge • Fase 4 • FIAP")
+st.caption("Modelo ARIMA ajustado dinamicamente com dados históricos do Ibovespa.")
