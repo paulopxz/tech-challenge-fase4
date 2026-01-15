@@ -1,66 +1,57 @@
-# 📈 Tech Challenge – Fase 4 | Previsão do IBOVESPA
+# Tech Challenge – Fase 4  
+## Previsão do Ibovespa com ARIMA
 
-Este projeto corresponde à **Fase 4 do Tech Challenge (FIAP / POSTECH)** e tem
-como objetivo realizar o **deploy de um modelo de séries temporais**
-desenvolvido na Fase 2, disponibilizando uma aplicação interativa utilizando
-**Streamlit**.
-
----
-
-## 🎯 Objetivo
-
-Disponibilizar um modelo preditivo do **IBOVESPA**, permitindo que o usuário:
-
-- Visualize dados históricos do índice
-- Escolha o horizonte de previsão
-- Acompanhe métricas de desempenho do modelo
-- Interaja com previsões de forma simples e visual
+Este projeto apresenta uma aplicação desenvolvida em **Streamlit** para
+visualização e previsão do Ibovespa, como parte da **Fase 4 do Tech Challenge**.
 
 ---
 
-## 🧠 Modelo Utilizado
+## 📊 Dados
 
-- **Modelo:** ARIMA(1,0,0)
-- **Variável modelada:** Retorno logarítmico do IBOVESPA
-- **Validação:** Walk-forward
-- **Avaliação:** Previsão da direção do mercado (alta ou baixa)
-- **Deploy:** Conversão do retorno previsto para nível de preço
+Os dados históricos do Ibovespa (2005–2025) são carregados a partir de um arquivo
+CSV contendo informações diárias de mercado.
 
-As métricas apresentadas no dashboard foram obtidas durante a validação
-realizada na **Fase 2 do Tech Challenge**.
+A coluna de preço utilizada é **"Último"**, convertida para formato numérico e
+tratada conforme o padrão brasileiro.
 
 ---
 
-## 🖥️ Aplicação Streamlit
+## 🧠 Modelo
 
-A aplicação desenvolvida com Streamlit oferece:
+O modelo utilizado é um **ARIMA**, definido e validado durante a **Fase 2** do
+projeto, treinado sobre os **log-retornos do Ibovespa**.
 
-- Gráfico com histórico do IBOVESPA
-- Previsão futura baseada no modelo treinado
-- Painel de métricas do modelo (Acurácia, Precisão, Recall e F1-Score)
-- Registro das interações do usuário para simular monitoramento do modelo
+Devido a limitações de portabilidade de modelos do `statsmodels` entre ambientes
+(distintas versões de NumPy e bibliotecas no Streamlit Cloud), o modelo é
+**reajustado dinamicamente dentro da aplicação**.
+
+Essa abordagem garante:
+- compatibilidade no deploy em nuvem
+- previsões consistentes
+- aderência ao modelo definido na Fase 2
 
 ---
 
-## 📁 Estrutura do Projeto
+## 🚀 Aplicação
 
-```
+A aplicação permite:
+- visualização da série histórica do Ibovespa
+- cálculo de log-retornos
+- previsão do próximo log-retorno via ARIMA
+
+---
+
+## 📦 Estrutura do Projeto
+
+tech-challenge-fase4/
+│
 ├── app.py
-├── requirements.txt
 ├── README.md
-│
-├── model/
-│   └── modelo_ibov.pkl
-│
+├── requirements.txt
 ├── data/
-│   ├── Dados Históricos - Ibovespa 2005-2025.csv
-│   └── logs_previsoes.csv
-│
+│ └── Dados Históricos - Ibovespa 2005-2025.csv
 └── notebook/
-    └── Tech_challenge_fase_2_grupo_8.ipynb
-```
-
----
+└── Tech_challenge_fase_2_para_fase_4.ipynb
 
 ## 🚀 Como Executar Localmente
 
@@ -98,3 +89,10 @@ Foi produzido um vídeo de até **5 minutos**, apresentando:
 
 Projeto desenvolvido para fins acadêmicos no curso **POSTECH – FIAP**,
 como parte do **Tech Challenge – Fase 4**.
+
+
+## ✅ Observação Final
+
+A estratégia adotada é uma prática comum em projetos de séries temporais
+em produção, priorizando estabilidade e reprodutibilidade do modelo
+em ambientes de deploy.
