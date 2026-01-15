@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import joblib
+import pickle
 import matplotlib.pyplot as plt
 from pathlib import Path
 
@@ -23,31 +23,27 @@ DATA_PATH = Path("data/Dados Históricos - Ibovespa 2005-2025.csv")
 MODEL_PATH = Path("model/modelo_ibov.pkl")
 
 # =========================
-# CARREGAR DADOS (REAL)
+# CARREGAR DADOS
 # =========================
 @st.cache_data
 def carregar_dados():
     df = pd.read_csv(
         DATA_PATH,
-        sep=",",
         encoding="latin-1"
     )
 
-    # Corrigir nomes quebrados
     df = df.rename(columns={
         'ï»¿"Data"': 'Data',
         'Ã\x9altimo': 'Ultimo',
         'Ãltimo': 'Ultimo'
     })
 
-    # Converter data
     df["Data"] = pd.to_datetime(
         df["Data"],
         format="%d.%m.%Y",
         errors="coerce"
     )
 
-    # Garantir tipo numérico
     df["Ultimo"] = pd.to_numeric(df["Ultimo"], errors="coerce")
 
     df = df.dropna(subset=["Data", "Ultimo"])
@@ -56,11 +52,13 @@ def carregar_dados():
     return df
 
 # =========================
-# CARREGAR MODELO
+# CARREGAR MODELO (PICKLE)
 # =========================
 @st.cache_resource
 def carregar_modelo():
-    return joblib.load(MODEL_PATH)
+    with open(MODEL_PATH, "rb") as f:
+        modelo = pickle.load(f)
+    return modelo
 
 # =========================
 # EXECUÇÃO
@@ -93,9 +91,7 @@ st.pyplot(fig)
 st.subheader("🔮 Previsão do próximo Log-Return")
 
 if len(df_lr) < 5:
-    st.warning(
-        "Quantidade insuficiente de dados para previsão confiável."
-    )
+    st.warning("Quantidade insuficiente de dados para previsão.")
 else:
     ultimo_lr = df_lr["log_return"].iloc[-1]
     X_input = np.array([[ultimo_lr]])
@@ -108,4 +104,3 @@ else:
     )
 
 st.caption("Tech Challenge • Fase 4 • FIAP")
-
